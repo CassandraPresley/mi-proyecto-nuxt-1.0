@@ -40,6 +40,11 @@
       <!-- INICIO -->
       <div v-if="seccionActiva==='inicio'" class="fade">
         <img src="/cass.jpg" class="cat">
+
+        <ClientOnly>
+          <ThreeModel />
+        </ClientOnly>
+
         <h1>Roweena Isadora Sánchez Flores</h1>
         <p class="subtitle">Ingeniería en TIC 💜</p>
       </div>
@@ -65,9 +70,15 @@
       <!-- PROYECTOS -->
       <div v-if="seccionActiva==='proyectos'" class="fade">
 
+        <!-- 🔥 BOTÓN NUEVO -->
+        <div style="margin-bottom:15px;">
+          <button class="btn-vercel" @click="irAPizzeria">
+            🍕 Ver Pizzería Elmos
+          </button>
+        </div>
+
         <form @submit.prevent="guardarProyecto" class="form">
 
-          <!-- CAMPOS PARA GUARDAR EN GOOGLE SHEET -->
           <input v-model="nuevoProyecto.nombreUsuario" placeholder="Nombre completo" required>
           <input v-model="nuevoProyecto.correo" placeholder="Correo electrónico" required>
           <input v-model="nuevoProyecto.telefono" placeholder="Teléfono" required>
@@ -91,7 +102,11 @@
 </template>
 
 <script setup>
-import { ref, reactive } from "vue"
+import { ref, reactive, defineAsyncComponent } from "vue"
+
+const ThreeModel = defineAsyncComponent(() =>
+  import("./components/ThreeModel.vue")
+)
 
 const darkMode = ref(false)
 const seccionActiva = ref('inicio')
@@ -102,12 +117,16 @@ function toggleMode() {
   darkMode.value = !darkMode.value
 }
 
+// 🔥 FUNCIÓN NUEVA
+function irAPizzeria() {
+  window.open("https://pizzeria-elmos.vercel.app/", "_blank")
+}
+
 const nuevoProyecto = reactive({
   nombreUsuario:'', correo:'', telefono:'',
   nombre:'', descripcion:'', tecnologias:''
 })
 
-// FUNCION CORREGIDA PARA GOOGLE SHEET
 async function guardarProyecto() {
   loading.value = true
   mensaje.value = ''
@@ -153,7 +172,7 @@ function sparkStyle() {
 </script>
 
 <style>
-/* TU CSS ORIGINAL SIN CAMBIOS */
+/* TU CSS ORIGINAL */
 .container{min-height:100vh; display:flex; justify-content:center; align-items:center; overflow:hidden; font-family:'Segoe UI',sans-serif;}
 .light{background:linear-gradient(135deg,#fbcfe8,#ddd6fe);}
 .dark{background:linear-gradient(135deg,#0f0c29,#302b63);}
@@ -179,4 +198,20 @@ function sparkStyle() {
 @keyframes spin{to{transform:rotate(360deg);}}
 .fade{animation:fade 0.4s;}
 @keyframes fade{from{opacity:0;transform:translateY(10px);}to{opacity:1;}}
+
+/* 🔥 BOTÓN NUEVO */
+.btn-vercel {
+  width: 100%;
+  padding: 12px;
+  border-radius: 20px;
+  border: none;
+  background: linear-gradient(135deg,#ff7a18,#ffb347);
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.btn-vercel:hover {
+  transform: scale(1.05);
+}
 </style>
