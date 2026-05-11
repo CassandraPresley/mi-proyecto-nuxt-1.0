@@ -10,88 +10,131 @@ onMounted(() => {
   scene.background = new THREE.Color(0xf5f5f5)
 
   const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000)
-
   const renderer = new THREE.WebGLRenderer({ antialias: true })
-  renderer.setSize(250, 250)
+  renderer.setSize(400, 400)
   container.value.appendChild(renderer.domElement)
 
+  const raycaster = new THREE.Raycaster()
+  const mouse = new THREE.Vector2()
+
+  let selectedPiece = null
+
+  const tiles = []
+  const pieces = []
+
   // 💡 luces
+  scene.add(new THREE.AmbientLight(0xffffff, 0.8))
   const light = new THREE.DirectionalLight(0xffffff, 1)
   light.position.set(5, 10, 5)
   scene.add(light)
 
-  const ambient = new THREE.AmbientLight(0xffffff, 0.6)
-  scene.add(ambient)
-
   // ♟️ TABLERO
-  const size = 8
-  const tileSize = 1
-
-  for (let x = 0; x < size; x++) {
-    for (let z = 0; z < size; z++) {
-      const color = (x + z) % 2 === 0 ? 0xffffff : 0x333333
+  for (let x = 0; x < 8; x++) {
+    for (let z = 0; z < 8; z++) {
+      const color = (x + z) % 2 === 0 ? 0xffffff : 0x444444
 
       const tile = new THREE.Mesh(
-        new THREE.BoxGeometry(tileSize, 0.1, tileSize),
+        new THREE.BoxGeometry(1, 0.1, 1),
         new THREE.MeshStandardMaterial({ color })
       )
 
-      tile.position.set(
-        x - size / 2 + 0.5,
-        0,
-        z - size / 2 + 0.5
-      )
+      tile.position.set(x - 3.5, 0, z - 3.5)
+      tile.userData = { type: "tile" }
 
       scene.add(tile)
+      tiles.push(tile)
     }
   }
 
-  // ♟️ FUNCION PARA CREAR PIEZAS
-  function crearPieza(color, x, z) {
-    const material = new THREE.MeshStandardMaterial({ color })
+  // ♟️ CREAR PIEZA SEGÚN TIPO
+  function crearPieza(tipo, color, x, z) {
+    const material = new THREE.MeshStandardMaterial({
+      color: color === "w" ? 0xffffff : 0x000000
+    })
 
-    // base
-    const base = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.3, 0.3, 0.2, 32),
-      material
-    )
-    base.position.set(x, 0.15, z)
+    let geometry
 
-    // cuerpo
-    const body = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.2, 0.25, 0.6, 32),
-      material
-    )
-    body.position.set(x, 0.5, z)
+    switch (tipo) {
+      case "p": geometry = new THREE.CylinderGeometry(0.25, 0.25, 0.6, 32); break
+      case "r": geometry = new THREE.BoxGeometry(0.5, 0.7, 0.5); break
+      case "n": geometry = new THREE.ConeGeometry(0.3, 0.8, 32); break
+      case "b": geometry = new THREE.CylinderGeometry(0.2, 0.3, 0.9, 32); break
+      case "q": geometry = new THREE.CylinderGeometry(0.3, 0.35, 1.1, 32); break
+      case "k": geometry = new THREE.CylinderGeometry(0.35, 0.4, 1.2, 32); break
+    }
 
-    // cabeza
-    const head = new THREE.Mesh(
-      new THREE.SphereGeometry(0.2, 32, 32),
-      material
-    )
-    head.position.set(x, 0.9, z)
+    const pieza = new THREE.Mesh(geometry, material)
 
-    scene.add(base, body, head)
+    pieza.position.set(x, 0.5, z)
+    pieza.userData = { type: "piece" }
+
+    scene.add(pieza)
+    pieces.push(pieza)
   }
 
-  // ♟️ PEONES
-  for (let i = 0; i < 8; i++) {
-    crearPieza(0xffffff, i - 3.5, -2.5) // blancas
-    crearPieza(0x000000, i - 3.5, 2.5)  // negras
-  }
+  // ♟️ TODAS LAS PIEZAS (32)
+  const piezasIniciales = [
+    // negras
+    ["r","b",-3.5,3.5], ["n","b",-2.5,3.5], ["b","b",-1.5,3.5], ["q","b",-0.5,3.5],
+    ["k","b",0.5,3.5], ["b","b",1.5,3.5], ["n","b",2.5,3.5], ["r","b",3.5,3.5],
 
-  // 🎯 cámara
-  camera.position.set(0, 6, 6)
+    ...Array.from({length:8}, (_,i)=>["p","b",i-3.5,2.5]),
+
+    // blancas
+    ["r","w",-3.5,-3.5], ["n","w",-2.5,-3.5], ["b","w",-1.5,-3.5], ["q","w",-0.5,-3.5],
+    ["k","w",0.5,-3.5], ["b","w",1.5,-3.5], ["n","w",2.5,-3.5], ["r","w",3.5,-3.5],
+
+    ...Array.from({length:8}, (_,i)=>["p","w",i-3.5,-2.5]),
+  ]
+
+  piezasIniciales.forEach(p => {
+    crearPieza(p[0], p[1], p[2], p[3])
+  })
+
+  // 🎥 cámara
+  camera.position.set(0, 7, 7)
   camera.lookAt(0, 0, 0)
 
-  // 🖱️ controles
   const controls = new OrbitControls(camera, renderer.domElement)
   controls.enableDamping = true
-  controls.enablePan = false
-  controls.minDistance = 4
-  controls.maxDistance = 10
 
-  // 🔄 animación
+  // 🖱️ CLICK
+  window.addEventListener("click", (event) => {
+    const rect = renderer.domElement.getBoundingClientRect()
+
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
+
+    raycaster.setFromCamera(mouse, camera)
+
+    const intersects = raycaster.intersectObjects(scene.children)
+
+    if (intersects.length === 0) return
+
+    const obj = intersects[0].object
+
+    // seleccionar pieza
+    if (obj.userData.type === "piece") {
+      if (selectedPiece) {
+        selectedPiece.material.emissive.set(0x000000)
+      }
+
+      selectedPiece = obj
+      obj.material.emissive.set(0x00ff00)
+      return
+    }
+
+    // mover pieza
+    if (obj.userData.type === "tile" && selectedPiece) {
+      selectedPiece.position.x = obj.position.x
+      selectedPiece.position.z = obj.position.z
+
+      selectedPiece.material.emissive.set(0x000000)
+      selectedPiece = null
+    }
+  })
+
+  // 🔁 loop
   function animate() {
     requestAnimationFrame(animate)
     controls.update()
